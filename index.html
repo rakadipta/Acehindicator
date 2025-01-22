@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <link rel="stylesheet" href="css/leaflet.css">
+        <link rel="stylesheet" href="css/L.Control.Layers.Tree.css">
+        <link rel="stylesheet" href="css/qgis2web.css">
+        <link rel="stylesheet" href="css/fontawesome-all.min.css">
+        <link rel="stylesheet" href="css/leaflet-control-geocoder.Geocoder.css">
+        <style>
+        html, body, #map {
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            margin: 0;
+        }
+        </style>
+        <title></title>
+    </head>
+    <body>
+        <div id="map">
+        </div>
+        <script src="js/qgis2web_expressions.js"></script>
+        <script src="js/leaflet.js"></script>
+        <script src="js/L.Control.Layers.Tree.min.js"></script>
+        <script src="js/leaflet.rotatedMarker.js"></script>
+        <script src="js/leaflet.pattern.js"></script>
+        <script src="js/leaflet-hash.js"></script>
+        <script src="js/Autolinker.min.js"></script>
+        <script src="js/rbush.min.js"></script>
+        <script src="js/labelgun.min.js"></script>
+        <script src="js/labels.js"></script>
+        <script src="js/leaflet-control-geocoder.Geocoder.js"></script>
+        <script src="data/HDI2023_1.js"></script>
+        <script src="data/HDI2022_2.js"></script>
+        <script src="data/PovertyRates2023_3.js"></script>
+        <script src="data/PovertyRates2022_4.js"></script>
+        <script src="data/GRDPPercapita2023_5.js"></script>
+        <script src="data/GRDPPercapita2022_6.js"></script>
+        <script>
+        var highlightLayer;
+        function highlightFeature(e) {
+            highlightLayer = e.target;
+
+            if (e.target.feature.geometry.type === 'LineString' || e.target.feature.geometry.type === 'MultiLineString') {
+              highlightLayer.setStyle({
+                color: '#ffff00',
+              });
+            } else {
+              highlightLayer.setStyle({
+                fillColor: '#ffff00',
+                fillOpacity: 1
+              });
+            }
+        }
+        var map = L.map('map', {
+            zoomControl:false, maxZoom:28, minZoom:1
+        })
+        var hash = new L.Hash(map);
+        map.attributionControl.setPrefix('<a href="https://github.com/tomchadwin/qgis2web" target="_blank">qgis2web</a> &middot; <a href="https://leafletjs.com" title="A JS library for interactive maps">Leaflet</a> &middot; <a href="https://qgis.org">QGIS</a>');
+        var autolinker = new Autolinker({truncate: {length: 30, location: 'smart'}});
+        // remove popup's row if "visible-with-data"
+        function removeEmptyRowsFromPopupContent(content, feature) {
+         var tempDiv = document.createElement('div');
+         tempDiv.innerHTML = content;
+         var rows = tempDiv.querySelectorAll('tr');
+         for (var i = 0; i < rows.length; i++) {
+             var td = rows[i].querySelector('td.visible-with-data');
+             var key = td ? td.id : '';
+             if (td && td.classList.contains('visible-with-data') && feature.properties[key] == null) {
+                 rows[i].parentNode.removeChild(rows[i]);
+             }
+         }
+         return tempDiv.innerHTML;
+        }
+        // add class to format popup if it contains media
+		function addClassToPopupIfMedia(content, popup) {
+			var tempDiv = document.createElement('div');
+			tempDiv.innerHTML = content;
+			if (tempDiv.querySelector('td img')) {
+				popup._contentNode.classList.add('media');
+					// Delay to force the redraw
+					setTimeout(function() {
+						popup.update();
+					}, 10);
+			} else {
+				popup._contentNode.classList.remove('media');
+			}
+		}
+        var zoomControl = L.control.zoom({
+            position: 'topleft'
+        }).addTo(map);
+        var bounds_group = new L.featureGroup([]);
+        function setBounds() {
+            if (bounds_group.getLayers().length) {
+                map.fitBounds(bounds_group.getBounds());
+            }
+        }
+        map.createPane('pane_OSM_0');
+        map.getPane('pane_OSM_0').style.zIndex = 400;
+        var layer_OSM_0 = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            pane: 'pane_OSM_0',
+            opacity: 1.0,
+            attribution: '',
+            minZoom: 1,
+            maxZoom: 28,
+            minNativeZoom: 0,
+            maxNativeZoom: 18
+        });
+        layer_OSM_0;
+        map.addLayer(layer_OSM_0);
+        function pop_HDI2023_1(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Kabupaten/Kota</th>\
+                        <td class="visible-with-data" id="Kab_Kot">' + (feature.properties['Kab_Kot'] !== null ? autolinker.link(feature.properties['Kab_Kot'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">HDI_2023</th>\
+                        <td class="visible-with-data" id="HDI_2023">' + (feature.properties['HDI_2023'] !== null ? autolinker.link(feature.properties['HDI_2023'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_HDI2023_1_0(feature) {
+            if (feature.properties['HDI_2023'] >= 67.100000 && feature.properties['HDI_2023'] <= 69.320000 ) {
+                return {
+                pane: 'pane_HDI2023_1',
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(247,252,245,1.0)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['HDI_2023'] >= 69.320000 && feature.properties['HDI_2023'] <= 72.880000 ) {
+                return {
+                pane: 'pane_HDI2023_1',
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(178,224,171,1.0)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['HDI_2023'] >= 72.880000 && feature.properties['HDI_2023'] <= 78.920000 ) {
+                return {
+                pane: 'pane_HDI2023_1',
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(61,167,90,1.0)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['HDI_2023'] >= 78.920000 && feature.properties['HDI_2023'] <= 86.690000 ) {
+                return {
+                pane: 'pane_HDI2023_1',
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(0,68,27,1.0)',
+                interactive: true,
+            }
+            }
+        }
+        map.createPane('pane_HDI2023_1');
+        map.getPane('pane_HDI2023_1').style.zIndex = 401;
+        map.getPane('pane_HDI2023_1').style['mix-blend-mode'] = 'normal';
+        var layer_HDI2023_1 = new L.geoJson(json_HDI2023_1, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_HDI2023_1',
+            layerName: 'layer_HDI2023_1',
+            pane: 'pane_HDI2023_1',
+            onEachFeature: pop_HDI2023_1,
+            style: style_HDI2023_1_0,
+        });
+        bounds_group.addLayer(layer_HDI2023_1);
+        map.addLayer(layer_HDI2023_1);
+        function pop_HDI2022_2(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Kabupaten/Kota</th>\
+                        <td class="visible-with-data" id="Kab_Kot">' + (feature.properties['Kab_Kot'] !== null ? autolinker.link(feature.properties['Kab_Kot'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">HDI_2022</th>\
+                        <td class="visible-with-data" id="HDI_2022">' + (feature.properties['HDI_2022'] !== null ? autolinker.link(feature.properties['HDI_2022'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_HDI2022_2_0(feature) {
+            if (feature.properties['HDI_2022'] >= 66.200000 && feature.properties['HDI_2022'] <= 68.720000 ) {
+                return {
+                pane: 'pane_HDI2022_2',
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(247,252,245,1.0)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['HDI_2022'] >= 68.720000 && feature.properties['HDI_2022'] <= 72.340000 ) {
+                return {
+                pane: 'pane_HDI2022_2',
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(178,224,171,1.0)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['HDI_2022'] >= 72.340000 && feature.properties['HDI_2022'] <= 78.040000 ) {
+                return {
+                pane: 'pane_HDI2022_2',
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(61,167,90,1.0)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['HDI_2022'] >= 78.040000 && feature.properties['HDI_2022'] <= 86.280000 ) {
+                return {
+                pane: 'pane_HDI2022_2',
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(0,68,27,1.0)',
+                interactive: true,
+            }
+            }
+        }
+        map.createPane('pane_HDI2022_2');
+        map.getPane('pane_HDI2022_2').style.zIndex = 402;
+        map.getPane('pane_HDI2022_2').style['mix-blend-mode'] = 'normal';
+        var layer_HDI2022_2 = new L.geoJson(json_HDI2022_2, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_HDI2022_2',
+            layerName: 'layer_HDI2022_2',
+            pane: 'pane_HDI2022_2',
+            onEachFeature: pop_HDI2022_2,
+            style: style_HDI2022_2_0,
+        });
+        bounds_group.addLayer(layer_HDI2022_2);
+        map.addLayer(layer_HDI2022_2);
+        function pop_PovertyRates2023_3(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Kabupaten/Kota</th>\
+                        <td class="visible-with-data" id="Kab_Kot">' + (feature.properties['Kab_Kot'] !== null ? autolinker.link(feature.properties['Kab_Kot'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Poverty_Rates_2023</th>\
+                        <td class="visible-with-data" id="Poverty__1">' + (feature.properties['Poverty__1'] !== null ? autolinker.link(feature.properties['Poverty__1'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_PovertyRates2023_3_0(feature) {
+            if (feature.properties['Poverty__1'] >= 7.040000 && feature.properties['Poverty__1'] <= 7.040000 ) {
+                return {
+                pane: 'pane_PovertyRates2023_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(202,0,32,1.0)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['Poverty__1'] >= 7.040000 && feature.properties['Poverty__1'] <= 13.390000 ) {
+                return {
+                pane: 'pane_PovertyRates2023_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(245,193,169,1.0)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['Poverty__1'] >= 13.390000 && feature.properties['Poverty__1'] <= 16.640000 ) {
+                return {
+                pane: 'pane_PovertyRates2023_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(180,214,231,1.0)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['Poverty__1'] >= 16.640000 && feature.properties['Poverty__1'] <= 19.150000 ) {
+                return {
+                pane: 'pane_PovertyRates2023_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(5,113,176,1.0)',
+                interactive: true,
+            }
+            }
+        }
+        map.createPane('pane_PovertyRates2023_3');
+        map.getPane('pane_PovertyRates2023_3').style.zIndex = 403;
+        map.getPane('pane_PovertyRates2023_3').style['mix-blend-mode'] = 'normal';
+        var layer_PovertyRates2023_3 = new L.geoJson(json_PovertyRates2023_3, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_PovertyRates2023_3',
+            layerName: 'layer_PovertyRates2023_3',
+            pane: 'pane_PovertyRates2023_3',
+            onEachFeature: pop_PovertyRates2023_3,
+            style: style_PovertyRates2023_3_0,
+        });
+        bounds_group.addLayer(layer_PovertyRates2023_3);
+        map.addLayer(layer_PovertyRates2023_3);
+        function pop_PovertyRates2022_4(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Kabupaten/Kota</th>\
+                        <td class="visible-with-data" id="Kab_Kot">' + (feature.properties['Kab_Kot'] !== null ? autolinker.link(feature.properties['Kab_Kot'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Poverty_Rates_2022</th>\
+                        <td class="visible-with-data" id="Poverty_20">' + (feature.properties['Poverty_20'] !== null ? autolinker.link(feature.properties['Poverty_20'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_PovertyRates2022_4_0(feature) {
+            if (feature.properties['Poverty_20'] >= 7.130000 && feature.properties['Poverty_20'] <= 7.130000 ) {
+                return {
+                pane: 'pane_PovertyRates2022_4',
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(202,0,32,1.0)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['Poverty_20'] >= 7.130000 && feature.properties['Poverty_20'] <= 12.830000 ) {
+                return {
+                pane: 'pane_PovertyRates2022_4',
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(245,193,169,1.0)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['Poverty_20'] >= 12.830000 && feature.properties['Poverty_20'] <= 15.440000 ) {
+                return {
+                pane: 'pane_PovertyRates2022_4',
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(180,214,231,1.0)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['Poverty_20'] >= 15.440000 && feature.properties['Poverty_20'] <= 19.180000 ) {
+                return {
+                pane: 'pane_PovertyRates2022_4',
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(5,113,176,1.0)',
+                interactive: true,
+            }
+            }
+        }
+        map.createPane('pane_PovertyRates2022_4');
+        map.getPane('pane_PovertyRates2022_4').style.zIndex = 404;
+        map.getPane('pane_PovertyRates2022_4').style['mix-blend-mode'] = 'normal';
+        var layer_PovertyRates2022_4 = new L.geoJson(json_PovertyRates2022_4, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_PovertyRates2022_4',
+            layerName: 'layer_PovertyRates2022_4',
+            pane: 'pane_PovertyRates2022_4',
+            onEachFeature: pop_PovertyRates2022_4,
+            style: style_PovertyRates2022_4_0,
+        });
+        bounds_group.addLayer(layer_PovertyRates2022_4);
+        map.addLayer(layer_PovertyRates2022_4);
+        function pop_GRDPPercapita2023_5(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Kabupaten/Kota</th>\
+                        <td class="visible-with-data" id="Kab_Kot">' + (feature.properties['Kab_Kot'] !== null ? autolinker.link(feature.properties['Kab_Kot'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">GRDP_Percapita_2023</th>\
+                        <td class="visible-with-data" id="GRDP_Per_1">' + (feature.properties['GRDP_Per_1'] !== null ? autolinker.link(feature.properties['GRDP_Per_1'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_GRDPPercapita2023_5_0(feature) {
+            if (feature.properties['GRDP_Per_1'] >= 14329000.000000 && feature.properties['GRDP_Per_1'] <= 21108000.000000 ) {
+                return {
+                pane: 'pane_GRDPPercapita2023_5',
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(0,0,255,1.0)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['GRDP_Per_1'] >= 21108000.000000 && feature.properties['GRDP_Per_1'] <= 29496000.000000 ) {
+                return {
+                pane: 'pane_GRDPPercapita2023_5',
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(85,2,170,1.0)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['GRDP_Per_1'] >= 29496000.000000 && feature.properties['GRDP_Per_1'] <= 44751000.000000 ) {
+                return {
+                pane: 'pane_GRDPPercapita2023_5',
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(170,5,85,1.0)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['GRDP_Per_1'] >= 44751000.000000 && feature.properties['GRDP_Per_1'] <= 65198000.000000 ) {
+                return {
+                pane: 'pane_GRDPPercapita2023_5',
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(255,8,0,1.0)',
+                interactive: true,
+            }
+            }
+        }
+        map.createPane('pane_GRDPPercapita2023_5');
+        map.getPane('pane_GRDPPercapita2023_5').style.zIndex = 405;
+        map.getPane('pane_GRDPPercapita2023_5').style['mix-blend-mode'] = 'normal';
+        var layer_GRDPPercapita2023_5 = new L.geoJson(json_GRDPPercapita2023_5, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_GRDPPercapita2023_5',
+            layerName: 'layer_GRDPPercapita2023_5',
+            pane: 'pane_GRDPPercapita2023_5',
+            onEachFeature: pop_GRDPPercapita2023_5,
+            style: style_GRDPPercapita2023_5_0,
+        });
+        bounds_group.addLayer(layer_GRDPPercapita2023_5);
+        map.addLayer(layer_GRDPPercapita2023_5);
+        function pop_GRDPPercapita2022_6(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Kabupaten/Kota</th>\
+                        <td class="visible-with-data" id="Kab_Kot">' + (feature.properties['Kab_Kot'] !== null ? autolinker.link(feature.properties['Kab_Kot'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">GRDP__Percapita_2022</th>\
+                        <td class="visible-with-data" id="GRDP_Perca">' + (feature.properties['GRDP_Perca'] !== null ? autolinker.link(feature.properties['GRDP_Perca'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_GRDPPercapita2022_6_0(feature) {
+            if (feature.properties['GRDP_Perca'] >= 14096000.000000 && feature.properties['GRDP_Perca'] <= 21952000.000000 ) {
+                return {
+                pane: 'pane_GRDPPercapita2022_6',
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(0,0,255,1.0)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['GRDP_Perca'] >= 21952000.000000 && feature.properties['GRDP_Perca'] <= 28686000.000000 ) {
+                return {
+                pane: 'pane_GRDPPercapita2022_6',
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(85,0,177,1.0)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['GRDP_Perca'] >= 28686000.000000 && feature.properties['GRDP_Perca'] <= 42115000.000000 ) {
+                return {
+                pane: 'pane_GRDPPercapita2022_6',
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(170,0,99,1.0)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['GRDP_Perca'] >= 42115000.000000 && feature.properties['GRDP_Perca'] <= 62822000.000000 ) {
+                return {
+                pane: 'pane_GRDPPercapita2022_6',
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(255,0,21,1.0)',
+                interactive: true,
+            }
+            }
+        }
+        map.createPane('pane_GRDPPercapita2022_6');
+        map.getPane('pane_GRDPPercapita2022_6').style.zIndex = 406;
+        map.getPane('pane_GRDPPercapita2022_6').style['mix-blend-mode'] = 'normal';
+        var layer_GRDPPercapita2022_6 = new L.geoJson(json_GRDPPercapita2022_6, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_GRDPPercapita2022_6',
+            layerName: 'layer_GRDPPercapita2022_6',
+            pane: 'pane_GRDPPercapita2022_6',
+            onEachFeature: pop_GRDPPercapita2022_6,
+            style: style_GRDPPercapita2022_6_0,
+        });
+        bounds_group.addLayer(layer_GRDPPercapita2022_6);
+        map.addLayer(layer_GRDPPercapita2022_6);
+        var osmGeocoder = new L.Control.Geocoder({
+            collapsed: true,
+            position: 'topleft',
+            text: 'Search',
+            title: 'Testing'
+        }).addTo(map);
+        document.getElementsByClassName('leaflet-control-geocoder-icon')[0]
+        .className += ' fa fa-search';
+        document.getElementsByClassName('leaflet-control-geocoder-icon')[0]
+        .title += 'Search for a place';
+        var overlaysTree = [
+            {label: 'GRDP Percapita 2022<br /><table><tr><td style="text-align: center;"><img src="legend/GRDPPercapita2022_6_14096000219520000.png" /></td><td>14096000 - 21952000</td></tr><tr><td style="text-align: center;"><img src="legend/GRDPPercapita2022_6_21952000286860001.png" /></td><td>21952000 - 28686000</td></tr><tr><td style="text-align: center;"><img src="legend/GRDPPercapita2022_6_28686000421150002.png" /></td><td>28686000 - 42115000</td></tr><tr><td style="text-align: center;"><img src="legend/GRDPPercapita2022_6_42115000628220003.png" /></td><td>42115000 - 62822000</td></tr></table>', layer: layer_GRDPPercapita2022_6},
+            {label: 'GRDP Percapita 2023<br /><table><tr><td style="text-align: center;"><img src="legend/GRDPPercapita2023_5_14329000211080000.png" /></td><td>14329000 - 21108000</td></tr><tr><td style="text-align: center;"><img src="legend/GRDPPercapita2023_5_21108000294960001.png" /></td><td>21108000 - 29496000</td></tr><tr><td style="text-align: center;"><img src="legend/GRDPPercapita2023_5_29496000447510002.png" /></td><td>29496000 - 44751000</td></tr><tr><td style="text-align: center;"><img src="legend/GRDPPercapita2023_5_44751000651980003.png" /></td><td>44751000 - 65198000</td></tr></table>', layer: layer_GRDPPercapita2023_5},
+            {label: 'Poverty Rates 2022<br /><table><tr><td style="text-align: center;"><img src="legend/PovertyRates2022_4_71710.png" /></td><td>7.1 - 7.1</td></tr><tr><td style="text-align: center;"><img src="legend/PovertyRates2022_4_711281.png" /></td><td>7.1 - 12.8</td></tr><tr><td style="text-align: center;"><img src="legend/PovertyRates2022_4_1281542.png" /></td><td>12.8 - 15.4</td></tr><tr><td style="text-align: center;"><img src="legend/PovertyRates2022_4_1541923.png" /></td><td>15.4 - 19.2</td></tr></table>', layer: layer_PovertyRates2022_4},
+            {label: 'Poverty Rates 2023<br /><table><tr><td style="text-align: center;"><img src="legend/PovertyRates2023_3_770.png" /></td><td>7 - 7</td></tr><tr><td style="text-align: center;"><img src="legend/PovertyRates2023_3_71341.png" /></td><td>7 - 13.4</td></tr><tr><td style="text-align: center;"><img src="legend/PovertyRates2023_3_1341662.png" /></td><td>13.4 - 16.6</td></tr><tr><td style="text-align: center;"><img src="legend/PovertyRates2023_3_1661913.png" /></td><td>16.6 - 19.1</td></tr></table>', layer: layer_PovertyRates2023_3},
+            {label: 'HDI 2022<br /><table><tr><td style="text-align: center;"><img src="legend/HDI2022_2_6626870.png" /></td><td>66.2 - 68.7</td></tr><tr><td style="text-align: center;"><img src="legend/HDI2022_2_6877231.png" /></td><td>68.7 - 72.3</td></tr><tr><td style="text-align: center;"><img src="legend/HDI2022_2_723782.png" /></td><td>72.3 - 78</td></tr><tr><td style="text-align: center;"><img src="legend/HDI2022_2_788633.png" /></td><td>78 - 86.3</td></tr></table>', layer: layer_HDI2022_2},
+            {label: 'HDI 2023<br /><table><tr><td style="text-align: center;"><img src="legend/HDI2023_1_6716930.png" /></td><td>67.1 - 69.3</td></tr><tr><td style="text-align: center;"><img src="legend/HDI2023_1_6937291.png" /></td><td>69.3 - 72.9</td></tr><tr><td style="text-align: center;"><img src="legend/HDI2023_1_7297892.png" /></td><td>72.9 - 78.9</td></tr><tr><td style="text-align: center;"><img src="legend/HDI2023_1_7898673.png" /></td><td>78.9 - 86.7</td></tr></table>', layer: layer_HDI2023_1},
+            {label: "OSM", layer: layer_OSM_0},]
+        var lay = L.control.layers.tree(null, overlaysTree,{
+            //namedToggle: true,
+            //selectorBack: false,
+            //closedSymbol: '&#8862; &#x1f5c0;',
+            //openedSymbol: '&#8863; &#x1f5c1;',
+            //collapseAll: 'Collapse all',
+            //expandAll: 'Expand all',
+            collapsed: false, 
+        });
+        lay.addTo(map);
+		document.addEventListener("DOMContentLoaded", function() {
+            // set new Layers List height which considers toggle icon
+            function newLayersListHeight() {
+                var layerScrollbarElement = document.querySelector('.leaflet-control-layers-scrollbar');
+                if (layerScrollbarElement) {
+                    var layersListElement = document.querySelector('.leaflet-control-layers-list');
+                    var originalHeight = layersListElement.style.height 
+                        || window.getComputedStyle(layersListElement).height;
+                    var newHeight = parseFloat(originalHeight) - 50;
+                    layersListElement.style.height = newHeight + 'px';
+                }
+            }
+            var isLayersListExpanded = true;
+            var controlLayersElement = document.querySelector('.leaflet-control-layers');
+            var toggleLayerControl = document.querySelector('.leaflet-control-layers-toggle');
+            // toggle Collapsed/Expanded and apply new Layers List height
+            toggleLayerControl.addEventListener('click', function() {
+                if (isLayersListExpanded) {
+                    controlLayersElement.classList.remove('leaflet-control-layers-expanded');
+                } else {
+                    controlLayersElement.classList.add('leaflet-control-layers-expanded');
+                }
+                isLayersListExpanded = !isLayersListExpanded;
+                newLayersListHeight()
+            });	
+			// apply new Layers List height if toggle layerstree
+			if (controlLayersElement) {
+				controlLayersElement.addEventListener('click', function(event) {
+					var toggleLayerHeaderPointer = event.target.closest('.leaflet-layerstree-header-pointer span');
+					if (toggleLayerHeaderPointer) {
+						newLayersListHeight();
+					}
+				});
+			}
+            // Collapsed/Expanded at Start to apply new height
+            setTimeout(function() {
+                toggleLayerControl.click();
+            }, 10);
+            setTimeout(function() {
+                toggleLayerControl.click();
+            }, 10);
+            // Collapsed touch/small screen
+            var isSmallScreen = window.innerWidth < 650;
+            if (isSmallScreen) {
+                setTimeout(function() {
+                    controlLayersElement.classList.remove('leaflet-control-layers-expanded');
+                    isLayersListExpanded = !isLayersListExpanded;
+                }, 500);
+            }  
+        });       
+        setBounds();
+        </script>
+    </body>
+</html>
